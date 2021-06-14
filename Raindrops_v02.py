@@ -8,16 +8,18 @@ Created on Sun Jun 13 21:28:09 2021
 import pygame
 import time
 import random
+import os
 
 pygame.init()
+pygame.mixer.init()
 
-FRAME_WIDTH  = 600
-FRAME_HEIGHT = 800
+FRAME_WIDTH, FRAME_HEIGHT  = 600, 800
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
 FPS = 60
+BACKGROUND_VOLUME = 0.1
 
 gameDisplay = pygame.display.set_mode((FRAME_WIDTH, FRAME_HEIGHT))
 pygame.display.set_caption('Raindrops')
@@ -58,6 +60,14 @@ def game_loop():
     score = 0
     objs = []
     done = False
+    
+    rain_track = pygame.mixer.Sound(os.path.join('Assets', 'rainfall.mp3'))
+    chan = pygame.mixer.Channel(0)
+    
+    chan.play(rain_track, loops = -1)
+    chan.set_volume(BACKGROUND_VOLUME)
+    
+    #print(pygame.mixer.music.get_volume())
     
     while not done:
         for event in pygame.event.get():
