@@ -43,87 +43,120 @@ class Droplet:
         self.y_pos = y_pos
         self.radius = radius
         self.has_dropped = has_dropped
+        
+        # Create surface for droplet
+        self.image = pygame.Surface([radius * 2, radius * 2])
+        self.rect = self.image.get_rect(center = (self.x_pos, self.y_pos))
+        
+        # Create mask from surface for collision detection
+        self.mask = pygame.mask.from_surface(self.image)
+        
+    def draw(self, window):
+        pygame.draw.circle(window, BLACK, (self.x_pos, self.y_pos), self.radius)
 
-def rain(Droplet): #don't think this works yet, but I would rather pass the function a Droplet than its parts.
-    pygame.draw.circle(gameDisplay, BLACK, (Droplet.x_pos, Droplet.y_pos), Droplet.radius)
+def draw_clock(window, time_start, time_left, time_given):
+    # Draw clock on screen
+    pygame.draw.rect(
+        window, BLACK, pygame.Rect(
+            FRAME_PADDING, FRAME_PADDING, FRAME_WIDTH / 2 - FRAME_PADDING * 2, 100
+            ), 2)
+    clockLabel_font = pygame.font.SysFont('arial', 12)
+    clockLabel_text = clockLabel_font.render("TIME LEFT", True, BLACK, WHITE)
+    clockLabel_textRect = clockLabel_text.get_rect(topright=(FRAME_WIDTH / 2 - FRAME_PADDING * 2, FRAME_PADDING))
+    
+    window.blit(clockLabel_text, clockLabel_textRect)
 
+    # Draw timer on screen
+    time_font = pygame.font.SysFont('arial', 48)  #'freesansbold.ttf'
+    time_now = time.time()
+    time_left = max(0, time_given - (time_now - time_start))
+    time_text = str(int(time_left // 60)).rjust(2, "0") + ":" + str(int(time_left % 60)).rjust(2, "0") +\
+        ":" + str(int((time_left % 1) * 100)).rjust(2, "0")
+    time_text = time_font.render(time_text, True, BLACK, WHITE)
+    time_textRect = time_text.get_rect()
+    time_textRect.center = (FRAME_WIDTH / 4, (100 + FRAME_PADDING * 2) / 2)
+    gameDisplay.blit(time_text, time_textRect)
+    
+def draw_scoreboard(window, score):
+    pygame.draw.rect(
+        window, BLACK, pygame.Rect(
+            FRAME_WIDTH / 2 + FRAME_PADDING / 2, FRAME_PADDING, FRAME_WIDTH / 2 - FRAME_PADDING * 2, 100
+            ), 2)
+    scoreLabel_font = pygame.font.SysFont('arial', 12)
+    scoreLabel_text = scoreLabel_font.render("SCORE", True, BLACK, WHITE)
+    scoreLabel_textRect = scoreLabel_text.get_rect(topleft=(FRAME_WIDTH / 2 + FRAME_PADDING * 2, FRAME_PADDING))
+    window.blit(scoreLabel_text, scoreLabel_textRect)
+    
+    score_font = pygame.font.SysFont('arial', 48)
+    score_text = score_font.render(str(score), True, BLACK, WHITE)
+    score_textRect = score_text.get_rect()
+    score_textRect.center = (FRAME_WIDTH * 3/4, (100 + FRAME_PADDING * 2) / 2)
+    window.blit(score_text, score_textRect)
+
+# Main function
 def game_loop():
-
-    # objs = []
-    # objs = [Droplet(random.randrange(0, FRAME_WIDTH), random.randrange(0, FRAME_HEIGHT), 3, False) for i in range(10)]
-
-    # gameDisplay.fill(WHITE)
-    # for i in range(10):
-    #     rain(objs[i].x_pos, objs[i].y_pos, objs[i].radius)
-    
-    # pygame.display.update()
-  
-    
+    # Initialize variables
     score = 0
     objs = []
     done = False
+    
     time_start = time.time()
     time_given = 70 # in seconds
     time_left = time_given
+    droplet_interval = 10
     
+    # Load background sound to channel
     rain_track = pygame.mixer.Sound(os.path.join('Assets', 'rainfall.mp3'))
     chan = pygame.mixer.Channel(0)
     
+    # Play background sound on infinite loop
     chan.play(rain_track, loops = -1)
     chan.set_volume(BACKGROUND_VOLUME)
     
-    #print(pygame.mixer.music.get_volume())
-    
+    # Main while loop to check and manage game state
     while not done:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                #quit()
+            
+            # Handle clicked droplets
+            if event.type == pygame.MOUSEBUTTONUP:
+                pos = pygame.mouse.get_pos()
+                
+                # List clicked droplets
+                clicked_droplets = [d for d in objs if d.rect.collidepoint(pos)]
+                
+                # Remove clicked droplets
+                for drop in clicked_droplets:
+                    score += drop.radius
+                    objs.remove(drop)
 
-        if time_left > 0:  
-            #append a Droplet to the running list
+        # Append a Droplet to the running list
+        if (time_left > 0) & (pygame.time.get_ticks() % droplet_interval == 0):  
             objs.append(Droplet(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
                                 random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2), 5, False))
         
         gameDisplay.fill(WHITE)
         
         ##draw clock rect, and clock timer
-        pygame.draw.rect(gameDisplay, BLACK, pygame.Rect(FRAME_PADDING, FRAME_PADDING, FRAME_WIDTH / 2 - FRAME_PADDING * 2, 100), 2)
-        clockLabel_font = pygame.font.SysFont('arial', 12)
-        clockLabel_text = clockLabel_font.render("TIME LEFT", True, BLACK, WHITE)
-        clockLabel_textRect = clockLabel_text.get_rect(topright=(FRAME_WIDTH / 2 - FRAME_PADDING * 2, FRAME_PADDING))
-        gameDisplay.blit(clockLabel_text, clockLabel_textRect)
-        time_font = pygame.font.SysFont('arial', 48)  #'freesansbold.ttf'
-        time_now = time.time()
-        time_left = max(0, time_given - (time_now - time_start))
-        time_text = str(int(time_left // 60)).rjust(2, "0") + ":" + str(int(time_left % 60)).rjust(2, "0") + ":" + str(int((time_left % 1) * 100)).rjust(2, "0")
-        time_text = time_font.render(time_text, True, BLACK, WHITE)
-        time_textRect = time_text.get_rect()
-        time_textRect.center = (FRAME_WIDTH / 4, (100 + FRAME_PADDING * 2) / 2)
-        gameDisplay.blit(time_text, time_textRect)
-        ##end draw clock
-        
+        draw_clock(gameDisplay, time_start, time_left, time_given)
+                
         ##draw scoreboard rect and score
-        pygame.draw.rect(gameDisplay, BLACK, pygame.Rect(FRAME_WIDTH / 2 + FRAME_PADDING / 2, FRAME_PADDING, FRAME_WIDTH / 2 - FRAME_PADDING * 2, 100), 2)
-        scoreLabel_font = pygame.font.SysFont('arial', 12)
-        scoreLabel_text = scoreLabel_font.render("SCORE", True, BLACK, WHITE)
-        scoreLabel_textRect = scoreLabel_text.get_rect(topleft=(FRAME_WIDTH / 2 + FRAME_PADDING * 2, FRAME_PADDING))
-        gameDisplay.blit(scoreLabel_text, scoreLabel_textRect)
-        score_font = pygame.font.SysFont('arial', 48)
-        score_text = score_font.render(str(score), True, BLACK, WHITE)
-        score_textRect = score_text.get_rect()
-        score_textRect.center = (FRAME_WIDTH * 3/4, (100 + FRAME_PADDING * 2) / 2)
-        gameDisplay.blit(score_text, score_textRect)
-        #still need to 
-        ##end draw scoreboard
+        draw_scoreboard(gameDisplay, score)
         
         #draw gameplay region rect
-        pygame.draw.rect(gameDisplay, BLACK, pygame.Rect(FRAME_PADDING, 100 + FRAME_PADDING * 2, FRAME_WIDTH - FRAME_PADDING * 2,
-                                                         FRAME_HEIGHT - 100 - FRAME_PADDING * 2 - FRAME_PADDING), 2)
+        pygame.draw.rect(
+            gameDisplay, BLACK, pygame.Rect(
+                FRAME_PADDING, 
+                100 + FRAME_PADDING * 2, 
+                FRAME_WIDTH - FRAME_PADDING * 2,
+                FRAME_HEIGHT - 100 - FRAME_PADDING * 2 - FRAME_PADDING
+                ), 2)
         
-        for i in range(len(objs)): #for each Droplet
-            #rain(objs[i].x_pos, objs[i].y_pos, objs[i].radius)
-            rain(objs[i])
+        # Draw droplets in objs
+        for droplet in objs:
+            droplet.draw(gameDisplay)
+            
         pygame.display.update()
         clock.tick(FPS)
 
