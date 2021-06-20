@@ -102,7 +102,7 @@ def draw_message(window, text):
     draw_text = message_font.render(text, 1, BLACK)
     window.blit(draw_text, (FRAME_WIDTH//2 - draw_text.get_width()//2, FRAME_HEIGHT//2 - draw_text.get_height()//2))
     pygame.display.update()
-    pygame.time.delay(3000)
+    #pygame.time.delay(3000)
 
 # Main function
 def game_loop():
@@ -110,9 +110,10 @@ def game_loop():
     score = 0
     objs = []
     done = False
+    play_state = 'RUNNING'
     
-    time_start = time.time()
-    time_given = 20 # in seconds
+    time_start = time.time() #not used anymore
+    time_given = 10 # in seconds
     time_left = time_given
     droplet_interval = 1
     initial_droplet_radius = 5
@@ -127,6 +128,9 @@ def game_loop():
     chan.play(rain_track, loops = -1)
     chan.set_volume(BACKGROUND_VOLUME)
     
+    gameDisplay.fill(WHITE)
+    pygame.display.update()
+    
     # Main while loop to check and manage game state
     while not done:
         for event in pygame.event.get():
@@ -137,16 +141,23 @@ def game_loop():
             if event.type == pygame.MOUSEBUTTONUP:
                 pos = pygame.mouse.get_pos()
                 
-                # List clicked droplets
-                clicked_droplets = [d for d in objs if d.rect.collidepoint(pos)]
+                # toggle pause when user clicks on clock
+                if FRAME_PADDING <= pos[0] <= FRAME_WIDTH / 2 and FRAME_PADDING <= pos[1] <= 100:
+                    play_state = 'PAUSED' if play_state == 'RUNNING' else 'RUNNING'
                 
-                # Remove clicked droplets
-                for drop in clicked_droplets:
-                    score += int(drop.radius)
-                    drop.is_dropping = True  # objs.remove(drop)
-
+                if play_state != 'PAUSED':
+                    # List clicked droplets
+                    clicked_droplets = [d for d in objs if d.rect.collidepoint(pos)]
+                    
+                    # Start clicked droplets falling
+                    for drop in clicked_droplets:
+                        score += int(drop.radius)
+                        drop.is_dropping = True  # objs.remove(drop)
+                    
         # Append a Droplet to the running list
-        if (time_left > 0) & (pygame.time.get_ticks() % droplet_interval == 0):  
+        if play_state == 'PAUSED':
+            draw_message(gameDisplay, 'Paused')
+        elif (time_left > 0) & (pygame.time.get_ticks() % droplet_interval == 0):  
             objs.append(Droplet(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
                                 random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2), 5, BLACK, False, False, False))
             
@@ -162,7 +173,7 @@ def game_loop():
             
             # aggregate connected Droplets into one
             if connected_drop_area_sum > 0: # so this will only happen if there Droplets were connected in this frame
-                connected_drop_area_sum += math.pi * (initial_droplet_radius ** 2) # to add in the radius of the current drop if other drops are touching it
+                connected_drop_area_sum += math.pi * (initial_droplet_radius ** 2) # to add in the area of the current drop if other drops are touching it
                 objs.append(Droplet(objs[-1].x_pos, objs[-1].y_pos, math.sqrt(connected_drop_area_sum / math.pi), BLACK, False, False, False))
                 objs.pop(-2) # remove second to last item, which was the original Droplet that fell this frame
                 if objs[-1].radius > radius_max:
@@ -175,11 +186,34 @@ def game_loop():
             # potentially needs a recursive call, because Droplets are growing and overlaping with others but not absorbing them
             # also need to pop Droplets from the list if they have dropped off of the screen
         
-        # Manage clock
-        time_left = max(0, time_given - (time.time() - time_start))
+            # Manage clock
+            time_left = max(0, time_left - 1/FPS) #= max(0, time_given - (time.time() - time_start))
         
+
+            gameDisplay.fill(WHITE)
+            
+            ##draw clock rect, and clock timer
+            draw_clock(gameDisplay, time_left)
+                    
+            ##draw scoreboard rect and score
+            draw_scoreboard(gameDisplay, score)
+            
+            #draw gameplay region rect
+            pygame.draw.rect(
+                gameDisplay, BLACK, pygame.Rect(
+                    FRAME_PADDING, 
+                    100 + FRAME_PADDING * 2, 
+                    FRAME_WIDTH - FRAME_PADDING * 2,
+                    FRAME_HEIGHT - 100 - FRAME_PADDING * 2 - FRAME_PADDING
+                    ), 2)
+            
+            # Draw droplets in objs
+            for droplet in objs:
+                droplet.draw(gameDisplay)
+
         if time_left == 0:
             draw_message(gameDisplay, 'Time\'s up!')
+            pygame.time.delay(3000)
             
             #print score and other initial variable attributes to a .csv database file 
             print(score)
@@ -189,26 +223,6 @@ def game_loop():
             
             break
         
-        gameDisplay.fill(WHITE)
-        
-        ##draw clock rect, and clock timer
-        draw_clock(gameDisplay, time_left)
-                
-        ##draw scoreboard rect and score
-        draw_scoreboard(gameDisplay, score)
-        
-        #draw gameplay region rect
-        pygame.draw.rect(
-            gameDisplay, BLACK, pygame.Rect(
-                FRAME_PADDING, 
-                100 + FRAME_PADDING * 2, 
-                FRAME_WIDTH - FRAME_PADDING * 2,
-                FRAME_HEIGHT - 100 - FRAME_PADDING * 2 - FRAME_PADDING
-                ), 2)
-        
-        # Draw droplets in objs
-        for droplet in objs:
-            droplet.draw(gameDisplay)
             
         pygame.display.update()
         clock.tick(FPS)
