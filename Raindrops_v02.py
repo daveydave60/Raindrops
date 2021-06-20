@@ -13,7 +13,6 @@ import math
 
 #%%
 pygame.init()
-pygame.mixer.init()
 
 FRAME_WIDTH, FRAME_HEIGHT  = 600, 800
 FRAME_PADDING = 10
@@ -59,7 +58,7 @@ class Droplet:
     def draw(self, window):
         pygame.draw.circle(window, BLACK, (self.x_pos, self.y_pos), self.radius)
 
-def draw_clock(window, time_start, time_left, time_given):
+def draw_clock(window, time_left):
     # Draw clock on screen
     pygame.draw.rect(
         window, BLACK, pygame.Rect(
@@ -73,8 +72,7 @@ def draw_clock(window, time_start, time_left, time_given):
 
     # Draw timer on screen
     time_font = pygame.font.SysFont('arial', 48)  #'freesansbold.ttf'
-    time_now = time.time()
-    time_left = max(0, time_given - (time_now - time_start))
+    
     time_text = str(int(time_left // 60)).rjust(2, "0") + ":" + str(int(time_left % 60)).rjust(2, "0") +\
         ":" + str(int((time_left % 1) * 100)).rjust(2, "0")
     time_text = time_font.render(time_text, True, BLACK, WHITE)
@@ -97,6 +95,14 @@ def draw_scoreboard(window, score):
     score_textRect = score_text.get_rect()
     score_textRect.center = (FRAME_WIDTH * 3/4, (100 + FRAME_PADDING * 2) / 2)
     window.blit(score_text, score_textRect)
+
+def draw_message(window, text):
+    # Draw message on screen and pause 5 seconds
+    message_font = pygame.font.SysFont('comicsans', 100)
+    draw_text = message_font.render(text, 1, BLACK)
+    window.blit(draw_text, (FRAME_WIDTH//2 - draw_text.get_width()//2, FRAME_HEIGHT//2 - draw_text.get_height()//2))
+    pygame.display.update()
+    pygame.time.delay(3000)
 
 # Main function
 def game_loop():
@@ -169,10 +175,17 @@ def game_loop():
             # potentially needs a recursive call, because Droplets are growing and overlaping with others but not absorbing them
             # also need to pop Droplets from the list if they have dropped off of the screen
         
+        # Manage clock
+        time_left = max(0, time_given - (time.time() - time_start))
+        
+        if time_left == 0:
+            draw_message(gameDisplay, 'Time\'s up!')
+            break
+        
         gameDisplay.fill(WHITE)
         
         ##draw clock rect, and clock timer
-        draw_clock(gameDisplay, time_start, time_left, time_given)
+        draw_clock(gameDisplay, time_left)
                 
         ##draw scoreboard rect and score
         draw_scoreboard(gameDisplay, score)
