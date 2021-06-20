@@ -13,6 +13,7 @@ import os
 #%%
 pygame.init()
 pygame.mixer.init()
+pygame.font.init()
 
 FRAME_WIDTH, FRAME_HEIGHT  = 600, 800
 FRAME_PADDING = 10
@@ -30,7 +31,6 @@ clock = pygame.time.Clock()
 class IterRegistry(type):
     def __iter__(cls):
         return iter(cls._registry)
-    
 
 class Droplet:
     """Class to create droplets of water"""
@@ -54,7 +54,7 @@ class Droplet:
     def draw(self, window):
         pygame.draw.circle(window, BLACK, (self.x_pos, self.y_pos), self.radius)
 
-def draw_clock(window, time_start, time_left, time_given):
+def draw_clock(window, time_left):
     # Draw clock on screen
     pygame.draw.rect(
         window, BLACK, pygame.Rect(
@@ -68,8 +68,6 @@ def draw_clock(window, time_start, time_left, time_given):
 
     # Draw timer on screen
     time_font = pygame.font.SysFont('arial', 48)  #'freesansbold.ttf'
-    time_now = time.time()
-    time_left = max(0, time_given - (time_now - time_start))
     time_text = str(int(time_left // 60)).rjust(2, "0") + ":" + str(int(time_left % 60)).rjust(2, "0") +\
         ":" + str(int((time_left % 1) * 100)).rjust(2, "0")
     time_text = time_font.render(time_text, True, BLACK, WHITE)
@@ -92,6 +90,13 @@ def draw_scoreboard(window, score):
     score_textRect = score_text.get_rect()
     score_textRect.center = (FRAME_WIDTH * 3/4, (100 + FRAME_PADDING * 2) / 2)
     window.blit(score_text, score_textRect)
+    
+def draw_message(window, text):
+    message_font = pygame.font.SysFont('comicsans', 100)
+    draw_text = message_font.render(text, 1, BLACK)
+    window.blit(draw_text, (FRAME_WIDTH//2 - draw_text.get_width()//2, FRAME_HEIGHT//2 - draw_text.get_height()//2))
+    pygame.display.update()
+    pygame.time.delay(5000)
 
 # Main function
 def game_loop():
@@ -101,9 +106,9 @@ def game_loop():
     done = False
     
     time_start = time.time()
-    time_given = 70 # in seconds
+    time_given = 7 # in seconds
     time_left = time_given
-    droplet_interval = 10
+    droplet_interval = 2
     
     # Load background sound to channel
     rain_track = pygame.mixer.Sound(os.path.join('Assets', 'rainfall.mp3'))
@@ -131,15 +136,22 @@ def game_loop():
                     score += drop.radius
                     objs.remove(drop)
 
+        # Manage clock
+        time_left = max(0, time_given - (time.time() - time_start))
+        
         # Append a Droplet to the running list
         if (time_left > 0) & (pygame.time.get_ticks() % droplet_interval == 0):  
             objs.append(Droplet(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
                                 random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2), 5, False))
         
+        if time_left == 0:
+            draw_message(gameDisplay, 'Time\'s up!')
+            break
+        
         gameDisplay.fill(WHITE)
         
         ##draw clock rect, and clock timer
-        draw_clock(gameDisplay, time_start, time_left, time_given)
+        draw_clock(gameDisplay, time_left)
                 
         ##draw scoreboard rect and score
         draw_scoreboard(gameDisplay, score)
