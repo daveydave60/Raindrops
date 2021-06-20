@@ -1,0 +1,6 @@
+user,score,time_given,droplet_interval,initial_droplet_radius,radius_max,fall_speed
+UserX,182,20,1,5,11,10
+UserX,280,20,1,5,11,10
+UserX,258,20,1,5,11,10
+UserX,180,20,1,5,11,10
+UserX,204,20,1,5,11,10

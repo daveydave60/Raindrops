@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Jun 19 00:52:09 2021
+Created on Sun Jun 13 2021
 
-@author: wrath
+@author: T. David Meyer and David J. Weissenborn Jr.
 """
 
 import pygame
@@ -112,7 +112,7 @@ def game_loop():
     done = False
     
     time_start = time.time()
-    time_given = 10 # in seconds
+    time_given = 20 # in seconds
     time_left = time_given
     droplet_interval = 1
     initial_droplet_radius = 5
@@ -180,6 +180,13 @@ def game_loop():
         
         if time_left == 0:
             draw_message(gameDisplay, 'Time\'s up!')
+            
+            #print score and other initial variable attributes to a .csv database file 
+            print(score)
+            score_and_attrib_list = ['UserX', score, time_given, droplet_interval, initial_droplet_radius, radius_max, fall_speed]
+            with open(os.path.join('Assets', 'scoreDB.csv'),'a') as fd:
+                fd.write(",".join([str(x) for x in score_and_attrib_list]) + '\n')
+            
             break
         
         gameDisplay.fill(WHITE)
