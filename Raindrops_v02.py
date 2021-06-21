@@ -38,13 +38,14 @@ class Droplet:
     __metaclass__ = IterRegistry
     _registry = []
     
-    def __init__(self, x_pos, y_pos, radius, color, is_connected, is_dropping, has_dropped):
+    def __init__(self, x_pos, y_pos, radius, color, is_connected, is_clicked, is_dropping, has_dropped):
         self._registry.append(self)
         self.x_pos = x_pos
         self.y_pos = y_pos
         self.radius = radius
         self.color = color
         self.is_connected = is_connected
+        self.is_clicked = is_clicked
         self.is_dropping = is_dropping
         self.has_dropped = has_dropped
         
@@ -113,7 +114,7 @@ def game_loop():
     play_state = 'RUNNING'
     
     time_start = time.time() #not used anymore
-    time_given = 10 # in seconds
+    time_given = 100 # in seconds
     time_left = time_given
     droplet_interval = 1
     initial_droplet_radius = 5
@@ -153,13 +154,16 @@ def game_loop():
                     for drop in clicked_droplets:
                         score += int(drop.radius)
                         drop.is_dropping = True  # objs.remove(drop)
+                        drop.is_clicked = True #used later for scoring
                     
-        # Append a Droplet to the running list
+        # start draw loop
         if play_state == 'PAUSED':
             draw_message(gameDisplay, 'Paused')
-        elif (time_left > 0) & (pygame.time.get_ticks() % droplet_interval == 0):  
+        elif (time_left > 0) & (pygame.time.get_ticks() % droplet_interval == 0):
+            # Append a Droplet to the running list
             objs.append(Droplet(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
-                                random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2), 5, BLACK, False, False, False))
+                                random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2),
+                                5, BLACK, False, False, False, False))
             
             # find connected droplets
             connected_drop_area_sum = 0
@@ -174,22 +178,26 @@ def game_loop():
             # aggregate connected Droplets into one
             if connected_drop_area_sum > 0: # so this will only happen if there Droplets were connected in this frame
                 connected_drop_area_sum += math.pi * (initial_droplet_radius ** 2) # to add in the area of the current drop if other drops are touching it
-                objs.append(Droplet(objs[-1].x_pos, objs[-1].y_pos, math.sqrt(connected_drop_area_sum / math.pi), BLACK, False, False, False))
+                objs.append(Droplet(objs[-1].x_pos, objs[-1].y_pos, math.sqrt(connected_drop_area_sum / math.pi), BLACK, False, False, False, False))
                 objs.pop(-2) # remove second to last item, which was the original Droplet that fell this frame
                 if objs[-1].radius > radius_max:
                     objs[-1].is_dropping = True
             
-            # Start large droplets falling down the screen
+            # Start large droplets falling down the screen and absorb any droplets in their path as they fall
+            # and remove droplets that have fallen off the screen
             for i in [dplt for dplt in objs if dplt.is_dropping == True]:
                 i.y_pos += fall_speed
-            
-            # potentially needs a recursive call, because Droplets are growing and overlaping with others but not absorbing them
-            # also need to pop Droplets from the list if they have dropped off of the screen
+                for d in objs:
+                    if d.rect.collidepoint(i.x_pos, i.y_pos) and i != d:
+                        if i.is_clicked == True:
+                            score += int(d.radius)
+                        objs.remove(d)
+                if i.y_pos > FRAME_HEIGHT + 10:
+                    objs.remove(i)
         
             # Manage clock
             time_left = max(0, time_left - 1/FPS) #= max(0, time_given - (time.time() - time_start))
         
-
             gameDisplay.fill(WHITE)
             
             ##draw clock rect, and clock timer
@@ -220,10 +228,8 @@ def game_loop():
             score_and_attrib_list = ['UserX', score, time_given, droplet_interval, initial_droplet_radius, radius_max, fall_speed]
             with open(os.path.join('Assets', 'scoreDB.csv'),'a') as fd:
                 fd.write(",".join([str(x) for x in score_and_attrib_list]) + '\n')
-            
             break
         
-            
         pygame.display.update()
         clock.tick(FPS)
 
