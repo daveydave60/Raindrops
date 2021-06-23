@@ -63,11 +63,11 @@ def draw_clock(window, time_left):
     # Draw clock on screen
     pygame.draw.rect(
         window, BLACK, pygame.Rect(
-            FRAME_PADDING, FRAME_PADDING, FRAME_WIDTH / 2 - FRAME_PADDING * 2, 100
+            FRAME_PADDING, FRAME_PADDING, FRAME_WIDTH // 2 - FRAME_PADDING * 2, 100
             ), 2)
     clockLabel_font = pygame.font.SysFont('arial', 12)
     clockLabel_text = clockLabel_font.render("TIME LEFT", True, BLACK, WHITE)
-    clockLabel_textRect = clockLabel_text.get_rect(topright=(FRAME_WIDTH / 2 - FRAME_PADDING * 2, FRAME_PADDING))
+    clockLabel_textRect = clockLabel_text.get_rect(topright=(FRAME_WIDTH // 2 - FRAME_PADDING * 2, FRAME_PADDING))
     
     window.blit(clockLabel_text, clockLabel_textRect)
 
@@ -78,8 +78,9 @@ def draw_clock(window, time_left):
         ":" + str(int((time_left % 1) * 100)).rjust(2, "0")
     time_text = time_font.render(time_text, True, BLACK, WHITE)
     time_textRect = time_text.get_rect()
-    time_textRect.center = (FRAME_WIDTH / 4, (100 + FRAME_PADDING * 2) / 2)
+    time_textRect.center = (FRAME_WIDTH // 4, (100 + FRAME_PADDING * 2) // 2)
     gameDisplay.blit(time_text, time_textRect)
+    return time_textRect
     
 def draw_scoreboard(window, score):
     pygame.draw.rect(
@@ -98,12 +99,11 @@ def draw_scoreboard(window, score):
     window.blit(score_text, score_textRect)
 
 def draw_message(window, text):
-    # Draw message on screen and pause 5 seconds
+    # Draw message on screen
     message_font = pygame.font.SysFont('comicsans', 100)
     draw_text = message_font.render(text, 1, BLACK)
     window.blit(draw_text, (FRAME_WIDTH//2 - draw_text.get_width()//2, FRAME_HEIGHT//2 - draw_text.get_height()//2))
     pygame.display.update()
-    #pygame.time.delay(3000)
 
 # Main function
 def game_loop():
@@ -113,7 +113,6 @@ def game_loop():
     done = False
     play_state = 'RUNNING'
     
-    time_start = time.time() #not used anymore
     time_given = 100 # in seconds
     time_left = time_given
     droplet_interval = 1
@@ -130,7 +129,12 @@ def game_loop():
     chan.set_volume(BACKGROUND_VOLUME)
     
     gameDisplay.fill(WHITE)
+    
+    # Define clock_area
+    clock_area = draw_clock(gameDisplay, time_left)
+    
     pygame.display.update()
+    
     
     # Main while loop to check and manage game state
     while not done:
@@ -143,7 +147,7 @@ def game_loop():
                 pos = pygame.mouse.get_pos()
                 
                 # toggle pause when user clicks on clock
-                if FRAME_PADDING <= pos[0] <= FRAME_WIDTH / 2 and FRAME_PADDING <= pos[1] <= 100:
+                if clock_area.collidepoint(pos):
                     play_state = 'PAUSED' if play_state == 'RUNNING' else 'RUNNING'
                 
                 if play_state != 'PAUSED':
