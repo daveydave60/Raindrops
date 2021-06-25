@@ -38,16 +38,16 @@ class Droplet:
     __metaclass__ = IterRegistry
     _registry = []
     
-    def __init__(self, x_pos, y_pos, radius, color, is_connected, is_clicked, is_dropping, has_dropped):
+    def __init__(self, x_pos, y_pos, radius, color, is_connected, is_clicked, is_dropping, should_die):
         self._registry.append(self)
         self.x_pos = x_pos
         self.y_pos = y_pos
         self.radius = radius
         self.color = color
-        self.is_connected = is_connected
+        self.is_connected = is_connected 
         self.is_clicked = is_clicked
         self.is_dropping = is_dropping
-        self.has_dropped = has_dropped
+        self.should_die = should_die
         
         # Create surface for droplet
         self.image = pygame.Surface([radius * 2, radius * 2])
@@ -57,7 +57,7 @@ class Droplet:
         self.mask = pygame.mask.from_surface(self.image)
         
     def draw(self, window):
-        pygame.draw.circle(window, BLACK, (self.x_pos, self.y_pos), self.radius)
+        pygame.draw.circle(window, self.color, (self.x_pos, self.y_pos), self.radius)
 
 def draw_clock(window, time_left):
     # Draw clock on screen
@@ -188,16 +188,20 @@ def game_loop():
                     objs[-1].is_dropping = True
             
             # Start large droplets falling down the screen and absorb any droplets in their path as they fall
-            # and remove droplets that have fallen off the screen
+            # and mark droplets that have fallen off the screen for removal
             for i in [dplt for dplt in objs if dplt.is_dropping == True]:
                 i.y_pos += fall_speed
                 for d in objs:
                     if d.rect.collidepoint(i.x_pos, i.y_pos) and i != d:
                         if i.is_clicked == True:
                             score += int(d.radius)
-                        objs.remove(d)
+                        #i.radius = math.sqrt(((i.radius ** 2 * math.pi) + (d.radius ** 2 * math.pi)) / math.pi)  # would make the falling drop grow as it consumes others
+                        d.should_die = True
                 if i.y_pos > FRAME_HEIGHT + 10:
-                    objs.remove(i)
+                    i.should_die = True
+        
+            #clear Droplets that are marked for death
+            objs[:] = [dplt for dplt in objs if dplt.should_die != True]
         
             # Manage clock
             time_left = max(0, time_left - 1/FPS) #= max(0, time_given - (time.time() - time_start))
