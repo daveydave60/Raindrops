@@ -38,7 +38,7 @@ class Droplet:
     __metaclass__ = IterRegistry
     _registry = []
     
-    def __init__(self, x_pos, y_pos, radius, color, is_connected, is_clicked, is_dropping, should_die):
+    def __init__(self, x_pos, y_pos, radius, color, is_connected, is_clicked, will_drop, is_dropping, should_die): ####
         self._registry.append(self)
         self.x_pos = x_pos
         self.y_pos = y_pos
@@ -46,8 +46,10 @@ class Droplet:
         self.color = color
         self.is_connected = is_connected 
         self.is_clicked = is_clicked
+        self.will_drop = will_drop
         self.is_dropping = is_dropping
         self.should_die = should_die
+        self.jitter_count = 0
         
         # Create surface for droplet
         self.image = pygame.Surface([radius * 2, radius * 2])
@@ -111,6 +113,8 @@ def game_loop():
     score = 0
     objs = []
     done = False
+    jitters = [-3, 3]
+    frames_elapsed = 0 #used for jitter
     play_state = 'RUNNING'
     
     time_given = 100 # in seconds
@@ -156,18 +160,20 @@ def game_loop():
                     
                     # Start clicked droplets falling
                     for drop in clicked_droplets:
-                        score += int(drop.radius)
+                        score += int(drop.radius) * int(drop.will_drop)
                         drop.is_dropping = True  # objs.remove(drop)
                         drop.is_clicked = True #used later for scoring
+                        drop.will_drop = False
                     
-        # start draw loop
+        frames_elapsed += 1
+        
         if play_state == 'PAUSED':
             draw_message(gameDisplay, 'Paused')
         elif (time_left > 0) & (pygame.time.get_ticks() % droplet_interval == 0):
             # Append a Droplet to the running list
             objs.append(Droplet(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
                                 random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2),
-                                5, BLACK, False, False, False, False))
+                                5, BLACK, False, False, False, False, False))
             
             # find connected droplets
             connected_drop_area_sum = 0
@@ -182,10 +188,19 @@ def game_loop():
             # aggregate connected Droplets into one
             if connected_drop_area_sum > 0: # so this will only happen if there Droplets were connected in this frame
                 connected_drop_area_sum += math.pi * (initial_droplet_radius ** 2) # to add in the area of the current drop if other drops are touching it
-                objs.append(Droplet(objs[-1].x_pos, objs[-1].y_pos, math.sqrt(connected_drop_area_sum / math.pi), BLACK, False, False, False, False))
+                objs.append(Droplet(objs[-1].x_pos, objs[-1].y_pos, math.sqrt(connected_drop_area_sum / math.pi), BLACK,
+                                    False, False, False, False, False))
                 objs.pop(-2) # remove second to last item, which was the original Droplet that fell this frame
                 if objs[-1].radius > radius_max:
-                    objs[-1].is_dropping = True
+                    objs[-1].will_drop = True
+            
+            #jitter drops
+            for i in [dplt for dplt in objs if dplt.will_drop == True]:
+                i.x_pos += jitters[frames_elapsed % len(jitters)]
+                i.jitter_count += 1
+                if i.jitter_count > FPS * 2:
+                    i.will_drop = False
+                    i.is_dropping = True
             
             # Start large droplets falling down the screen and absorb any droplets in their path as they fall
             # and mark droplets that have fallen off the screen for removal
@@ -194,7 +209,7 @@ def game_loop():
                 for d in objs:
                     if d.rect.collidepoint(i.x_pos, i.y_pos) and i != d:
                         if i.is_clicked == True:
-                            score += int(d.radius)
+                            score += int(d.radius) * int(i.radius > radius_max)
                         #i.radius = math.sqrt(((i.radius ** 2 * math.pi) + (d.radius ** 2 * math.pi)) / math.pi)  # would make the falling drop grow as it consumes others
                         d.should_die = True
                 if i.y_pos > FRAME_HEIGHT + 10:
