@@ -19,6 +19,7 @@ FRAME_PADDING = 10
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+GRAY = (200, 200, 200)
 GREEN = (0, 255, 0)
 
 FPS = 60
@@ -100,10 +101,12 @@ def draw_scoreboard(window, score):
     score_textRect.center = (FRAME_WIDTH * 3/4, (100 + FRAME_PADDING * 2) / 2)
     window.blit(score_text, score_textRect)
 
-def draw_message(window, text):
+def draw_message(window, text_string, text_size):
     # Draw message on screen
-    message_font = pygame.font.SysFont('comicsans', 100)
-    draw_text = message_font.render(text, 1, BLACK)
+    pygame.draw.rect(window, GRAY, pygame.Rect(FRAME_WIDTH / 2 - 200, FRAME_HEIGHT / 2 - 100, 400, 200), 0)  #this rect is filled
+    pygame.draw.rect(window, BLACK, pygame.Rect(FRAME_WIDTH / 2 - 200, FRAME_HEIGHT / 2 - 100, 400, 200), 4)  #this rect adds a border
+    message_font = pygame.font.SysFont('comicsans', text_size)
+    draw_text = message_font.render(text_string, 1, BLACK)
     window.blit(draw_text, (FRAME_WIDTH//2 - draw_text.get_width()//2, FRAME_HEIGHT//2 - draw_text.get_height()//2))
     pygame.display.update()
 
@@ -177,7 +180,7 @@ def game_loop():
         frames_elapsed += 1
         
         if play_state == 'PAUSED':
-            draw_message(gameDisplay, 'Paused')
+            draw_message(gameDisplay, 'Paused', 100)
         elif (time_left > 0) & (pygame.time.get_ticks() % droplet_interval == 0):
             # Append a Droplet to the running list
             objs.append(Droplet(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
@@ -252,14 +255,15 @@ def game_loop():
                 droplet.draw(gameDisplay)
 
         if time_left == 0:
-            draw_message(gameDisplay, 'Time\'s up!')
-            pygame.time.delay(3000)
+            draw_message(gameDisplay, 'Time\'s up!', 100)
             
             #print score and other initial variable attributes to a .csv database file 
             print(score)
             score_and_attrib_list = ['UserX', score, time_given, droplet_interval, initial_droplet_radius, radius_max, fall_speed]
             with open(os.path.join('Assets', 'scoreDB.csv'),'a') as fd:
                 fd.write(",".join([str(x) for x in score_and_attrib_list]) + '\n')
+            
+            pygame.time.delay(3000)
             break
         
         pygame.display.update()
