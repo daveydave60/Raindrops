@@ -124,9 +124,16 @@ def game_loop():
     radius_max = initial_droplet_radius + 6
     fall_speed = 10
     
-    # Load background sound to channel
+    # Load background sound to channel 0
     rain_track = pygame.mixer.Sound(os.path.join('Assets', 'rainfall.mp3'))
     chan = pygame.mixer.Channel(0)
+    
+    # load game sounds to channel 1
+    pop_sfx = pygame.mixer.Sound(os.path.join('Assets', 'DoublePop.mp3'))
+    pop_array = pop_sfx.get_raw()[130000:140000] #slice larger sound file to between 1.3ms and 1.4ms
+    pop_sfx = pygame.mixer.Sound(buffer=pop_array)
+    chan1 = pygame.mixer.Channel(1)
+    chan1.set_volume(0.2)
     
     # Play background sound on infinite loop
     chan.play(rain_track, loops = -1)
@@ -157,6 +164,8 @@ def game_loop():
                 if play_state != 'PAUSED':
                     # List clicked droplets
                     clicked_droplets = [d for d in objs if d.rect.collidepoint(pos)]
+                    if len(clicked_droplets) != 0:
+                        chan1.play(pop_sfx)
                     
                     # Start clicked droplets falling
                     for drop in clicked_droplets:
