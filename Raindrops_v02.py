@@ -5,6 +5,7 @@ Created on Sun Jun 13 2021
 @author: T. David Meyer and David J. Weissenborn Jr.
 """
 
+#%%
 import pygame
 import time
 import random
@@ -28,17 +29,24 @@ BACKGROUND_VOLUME = 0.1
 gameDisplay = pygame.display.set_mode((FRAME_WIDTH, FRAME_HEIGHT))
 pygame.display.set_caption('Raindrops')
 clock = pygame.time.Clock()
+levels = [1, 2, 3]
+level_desc = ["BE ACTIVE: Only jittering drops give points",
+              "STAY POSITIVE: Naturally falling drops give negative points",
+              "LIGHTEN UP: Lightning gives score multipliers",
+              "THINK FAST: All drops are worth the same points"]
+
+score = 0
 
 class IterRegistry(type):
     def __iter__(cls):
         return iter(cls._registry)
-    
+
 
 class Droplet:
     """Class to create droplets of water"""
     __metaclass__ = IterRegistry
     _registry = []
-    
+
     def __init__(self, x_pos, y_pos, radius, color, is_connected, is_clicked, will_drop, is_dropping, should_die): ####
         self._registry.append(self)
         self.x_pos = x_pos
@@ -52,6 +60,13 @@ class Droplet:
         self.should_die = should_die
         self.jitter_count = 0
         
+        # load game sounds to channel 1
+        self.pop_sfx = pygame.mixer.Sound(os.path.join('Assets', 'DoublePop.mp3'))
+        self.pop_array = self.pop_sfx.get_raw()[130000:140000] #slice larger sound file to between 1.3ms and 1.4ms
+        self.pop_sfx = pygame.mixer.Sound(buffer=self.pop_array)
+        self.chan1 = pygame.mixer.Channel(1)
+        self.chan1.set_volume(0.2)
+        
         # Create surface for droplet
         self.image = pygame.Surface([radius * 2, radius * 2])
         self.rect = self.image.get_rect(center = (self.x_pos, self.y_pos))
@@ -61,6 +76,9 @@ class Droplet:
         
     def draw(self, window):
         pygame.draw.circle(window, self.color, (self.x_pos, self.y_pos), self.radius)
+        
+    def burst(self):
+        self.chan1.play(self.pop_sfx)
 
 def draw_clock(window, time_left):
     # Draw clock on screen
@@ -110,37 +128,45 @@ def draw_message(window, text_string, text_size):
     window.blit(draw_text, (FRAME_WIDTH//2 - draw_text.get_width()//2, FRAME_HEIGHT//2 - draw_text.get_height()//2))
     pygame.display.update()
 
+
+def level_intro(level):
+    global score
+    for i in range(FPS * 5): #run intro for 5 seconds
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+        
+        gameDisplay.fill(WHITE)
+        
+        ##draw clock rect, and clock timer
+        draw_clock(gameDisplay, 0)
+                
+        ##draw scoreboard rect and score
+        draw_scoreboard(gameDisplay, score)
+        
+        #draw gameplay region rect
+        pygame.draw.rect(gameDisplay, BLACK, pygame.Rect(FRAME_PADDING, 100 + FRAME_PADDING * 2, 
+                FRAME_WIDTH - FRAME_PADDING * 2,FRAME_HEIGHT - 100 - FRAME_PADDING * 2 - FRAME_PADDING), 2)
+        
+        draw_message(gameDisplay, 'Level ' + str(level), 100)
+         
+
 # Main function
-def game_loop():
+def game_loop(bool_small_drops_count, bool_nat_drops_neg):
     # Initialize variables
-    score = 0
+    global score
     objs = []
     done = False
     jitters = [-3, 3]
     frames_elapsed = 0 #used for jitter
     play_state = 'RUNNING'
-    
-    time_given = 100 # in seconds
+
+    time_given = 60 # in seconds
     time_left = time_given
     droplet_interval = 1
     initial_droplet_radius = 5
     radius_max = initial_droplet_radius + 6
-    fall_speed = 10
-    
-    # Load background sound to channel 0
-    rain_track = pygame.mixer.Sound(os.path.join('Assets', 'rainfall.mp3'))
-    chan = pygame.mixer.Channel(0)
-    
-    # load game sounds to channel 1
-    pop_sfx = pygame.mixer.Sound(os.path.join('Assets', 'DoublePop.mp3'))
-    pop_array = pop_sfx.get_raw()[130000:140000] #slice larger sound file to between 1.3ms and 1.4ms
-    pop_sfx = pygame.mixer.Sound(buffer=pop_array)
-    chan1 = pygame.mixer.Channel(1)
-    chan1.set_volume(0.2)
-    
-    # Play background sound on infinite loop
-    chan.play(rain_track, loops = -1)
-    chan.set_volume(BACKGROUND_VOLUME)
+    fall_speed = 10 
     
     gameDisplay.fill(WHITE)
     
@@ -148,6 +174,29 @@ def game_loop():
     clock_area = draw_clock(gameDisplay, time_left)
     
     pygame.display.update()
+    
+    # function to determine how a drop gets scored. for adding to current score
+    def increment_score(drop, absorbed_by_clicked_drop, absorbing_drop_radius):
+        size_check_met = True
+        absorbed_check_met = True
+        pos_neg_mult = 1
+        
+        if drop.is_clicked: #drop was clicked
+            if drop.radius < radius_max and bool_small_drops_count == False:
+                size_check_met = False
+        else: #drop was absorbed
+            if absorbed_by_clicked_drop == False: #absorbed by a natural drop
+                if bool_nat_drops_neg:
+                    pos_neg_mult = -1
+                else:
+                    absorbed_check_met = False
+            else: #absorbed by a clicked drop
+                if absorbing_drop_radius < radius_max and bool_small_drops_count == False:
+                    size_check_met = False
+        
+        incr = int(drop.radius) * int(size_check_met) * int(absorbed_check_met) * pos_neg_mult
+        
+        return incr
     
     
     # Main while loop to check and manage game state
@@ -168,14 +217,14 @@ def game_loop():
                     # List clicked droplets
                     clicked_droplets = [d for d in objs if d.rect.collidepoint(pos)]
                     if len(clicked_droplets) != 0:
-                        chan1.play(pop_sfx)
+                        clicked_droplets[0].burst()
                     
                     # Start clicked droplets falling
                     for drop in clicked_droplets:
-                        score += int(drop.radius) * int(drop.will_drop)
                         drop.is_dropping = True  # objs.remove(drop)
                         drop.is_clicked = True #used later for scoring
                         drop.will_drop = False
+                        score += increment_score(drop, False, 0)
                     
         frames_elapsed += 1
         
@@ -220,8 +269,7 @@ def game_loop():
                 i.y_pos += fall_speed
                 for d in objs:
                     if d.rect.collidepoint(i.x_pos, i.y_pos) and i != d:
-                        if i.is_clicked == True:
-                            score += int(d.radius) * int(i.radius > radius_max)
+                        score += increment_score(d, i.is_clicked, i.radius)
                         #i.radius = math.sqrt(((i.radius ** 2 * math.pi) + (d.radius ** 2 * math.pi)) / math.pi)  # would make the falling drop grow as it consumes others
                         d.should_die = True
                 if i.y_pos > FRAME_HEIGHT + 10:
@@ -257,19 +305,31 @@ def game_loop():
         if time_left == 0:
             draw_message(gameDisplay, 'Time\'s up!', 100)
             
-            #print score and other initial variable attributes to a .csv database file 
-            print(score)
-            score_and_attrib_list = ['UserX', score, time_given, droplet_interval, initial_droplet_radius, radius_max, fall_speed]
-            with open(os.path.join('Assets', 'scoreDB.csv'),'a') as fd:
-                fd.write(",".join([str(x) for x in score_and_attrib_list]) + '\n')
-            
             pygame.time.delay(3000)
-            break
+            done = True
+            #break
         
         pygame.display.update()
         clock.tick(FPS)
 
-game_loop()
+# Load background sound to channel 0
+rain_track = pygame.mixer.Sound(os.path.join('Assets', 'rainfall.mp3'))
+chan = pygame.mixer.Channel(0)
+
+# Play background sound on infinite loop
+chan.play(rain_track, loops = -1)
+chan.set_volume(BACKGROUND_VOLUME)
+
+for level in levels:
+    level_intro(level)
+    game_loop(False, True)
+    
+#print score and other initial variable attributes to a .csv database file 
+print(score)
+score_and_attrib_list = ['UserX', score]
+with open(os.path.join('Assets', 'scoreDB.csv'),'a') as fd:
+    fd.write(",".join([str(x) for x in score_and_attrib_list]) + '\n')
+            
 pygame.quit()
 #%%
 #quit()
