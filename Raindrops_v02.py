@@ -11,6 +11,7 @@ import time
 import random
 import os
 import math
+from sys import exit
 
 #%%
 pygame.init()
@@ -29,6 +30,7 @@ BACKGROUND_VOLUME = 0.1
 gameDisplay = pygame.display.set_mode((FRAME_WIDTH, FRAME_HEIGHT))
 pygame.display.set_caption('Raindrops')
 clock = pygame.time.Clock()
+lightning_img = pygame.image.load(os.path.join('Assets', 'lightning_v5.png')).convert_alpha()
 levels = [1, 2, 3]
 level_desc = ["BE ACTIVE: Only jittering drops give points",
               "STAY POSITIVE: Naturally falling drops give negative points",
@@ -62,7 +64,7 @@ class Droplet:
         
         # load game sounds to channel 1
         self.pop_sfx = pygame.mixer.Sound(os.path.join('Assets', 'DoublePop.mp3'))
-        self.pop_array = self.pop_sfx.get_raw()[130000:140000] #slice larger sound file to between 1.3ms and 1.4ms
+        self.pop_array = self.pop_sfx.get_raw()[130000:140000] #slice larger sound file to between 1.3s and 1.4s
         self.pop_sfx = pygame.mixer.Sound(buffer=self.pop_array)
         self.chan1 = pygame.mixer.Channel(1)
         self.chan1.set_volume(0.2)
@@ -77,6 +79,31 @@ class Droplet:
     def draw(self, window):
         pygame.draw.circle(window, self.color, (self.x_pos, self.y_pos), self.radius)
         
+    def burst(self):
+        self.chan1.play(self.pop_sfx)
+
+class Lightning:
+    def __init__(self, x_pos, y_pos, is_clicked): ####
+        self.x_pos = x_pos
+        self.y_pos = y_pos
+        self.is_clicked = is_clicked
+        self.jitter_count = 0
+
+        # load game sounds to channel 1
+        self.pop_sfx = pygame.mixer.Sound(os.path.join('Assets', 'Thunder.mp3'))
+        self.pop_array = self.pop_sfx.get_raw()[0:300000] #slice larger sound file to between 0s and 3s
+        self.pop_sfx = pygame.mixer.Sound(buffer=self.pop_array)
+        self.chan1 = pygame.mixer.Channel(1)
+        self.chan1.set_volume(0.2)
+        
+        # Create surface for droplet
+        self.image = lightning_img
+        #self.image = pygame.transform.scale(self.image, (30,30))
+        self.rect = self.image.get_rect(center = (self.x_pos, self.y_pos))
+        
+        # Create mask from surface for collision detection
+        self.mask = pygame.mask.from_surface(self.image)
+
     def burst(self):
         self.chan1.play(self.pop_sfx)
 
@@ -156,6 +183,7 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
     # Initialize variables
     global score
     objs = []
+    light_objs = []  #although we only allow one at a time
     done = False
     jitters = [-3, 3]
     frames_elapsed = 0 #used for jitter
@@ -204,6 +232,7 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
+                exit()
             
             # Handle clicked droplets
             if event.type == pygame.MOUSEBUTTONUP:
@@ -225,6 +254,15 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
                         drop.is_clicked = True #used later for scoring
                         drop.will_drop = False
                         score += increment_score(drop, False, 0)
+
+                    # Clear clicked lightning and start large droplets falling
+                    clicked_lightning = [obj for obj in light_objs if obj.rect.collidepoint(pos)]
+                    if len(clicked_lightning) != 0:
+                        clicked_lightning[0].burst()
+                        #light_objs[:] = []
+                        for i in [obj for obj in objs if obj.will_drop == True]:
+                            i.is_clicked = True #this makes sure it gets scored positively
+                            i.is_dropping = True
                     
         frames_elapsed += 1
         
@@ -235,6 +273,11 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
             objs.append(Droplet(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
                                 random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2),
                                 5, BLACK, False, False, False, False, False))
+            
+            # Append lightning under the right conditions
+            if frames_elapsed % 200 == 0:
+                light_objs.append(Lightning(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
+                                            random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2), False))
             
             # find connected droplets
             connected_drop_area_sum = 0
@@ -301,6 +344,10 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
             # Draw droplets in objs
             for droplet in objs:
                 droplet.draw(gameDisplay)
+
+            # Draw lightning in light_objs
+            for l in light_objs:
+                gameDisplay.blit(l.image, l.rect)
 
         if time_left == 0:
             draw_message(gameDisplay, 'Time\'s up!', 100)
