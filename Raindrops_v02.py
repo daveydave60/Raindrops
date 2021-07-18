@@ -192,11 +192,11 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
     done = False
     jitters = [-3, 3] # determines how much a jittering droplet moves form side to side
     frames_elapsed = 0 #used for jitter
-    jitter_frames = FPS * 2
+    jitter_frames = FPS * 2 - (level - 1)
     play_state = 'RUNNING'
-    level_end_score_threshold = level - 1 * 200
+    level_end_score_threshold = (level - 1) * 200
 
-    lightning_prob = 1000  #expected value of lightning is 1 in this many frames
+    lightning_prob = 1000 + ((level - 1) * 40) #expected value of lightning is 1 in this many frames
 
     time_given = 60 # in seconds
     time_left = time_given
