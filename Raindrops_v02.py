@@ -31,11 +31,9 @@ gameDisplay = pygame.display.set_mode((FRAME_WIDTH, FRAME_HEIGHT))
 pygame.display.set_caption('Raindrops')
 clock = pygame.time.Clock()
 lightning_img = pygame.image.load(os.path.join('Assets', 'lightning_v5.png')).convert_alpha()
-levels = [1, 2, 3]
-level_desc = ["BE ACTIVE: Only jittering drops give points",
-              "STAY POSITIVE: Naturally falling drops give negative points",
-              "LIGHTEN UP: Lightning gives score multipliers",
-              "THINK FAST: All drops are worth the same points"]
+levels = list(range(1,51))
+game_over = False  # will be set to True once player loses
+game_completed = False  # will be set to True if player completes all levels.  They win the game.
 
 score = 0
 
@@ -91,10 +89,10 @@ class Lightning:
 
         # load game sounds to channel 1
         self.pop_sfx = pygame.mixer.Sound(os.path.join('Assets', 'Thunder.mp3'))
-        self.pop_array = self.pop_sfx.get_raw()[0:300000] #slice larger sound file to between 0s and 3s
+        self.pop_array = self.pop_sfx.get_raw()[0:500000] #slice larger sound file to between 0s and 5s
         self.pop_sfx = pygame.mixer.Sound(buffer=self.pop_array)
         self.chan1 = pygame.mixer.Channel(1)
-        self.chan1.set_volume(0.2)
+        self.chan1.set_volume(0.4)
         
         # Create surface for droplet
         self.image = lightning_img
@@ -177,17 +175,28 @@ def level_intro(level):
         
         draw_message(gameDisplay, 'Level ' + str(level), 100)
          
+def game_over_screen():
+    print('You failed :(   Game over!')
+
+def game_complete_screen():
+    print('You beat the game!!!!')
 
 # Main function
-def game_loop(bool_small_drops_count, bool_nat_drops_neg):
+def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
     # Initialize variables
     global score
+    global game_over
+    global game_completed
     objs = []
-    light_objs = []  #although we only allow one at a time
+    light_objs = []
     done = False
-    jitters = [-3, 3]
+    jitters = [-3, 3] # determines how much a jittering droplet moves form side to side
     frames_elapsed = 0 #used for jitter
+    jitter_frames = FPS * 2
     play_state = 'RUNNING'
+    level_end_score_threshold = level - 1 * 200
+
+    lightning_prob = 1000  #expected value of lightning is 1 in this many frames
 
     time_given = 60 # in seconds
     time_left = time_given
@@ -258,8 +267,9 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
                     # Clear clicked lightning and start large droplets falling
                     clicked_lightning = [obj for obj in light_objs if obj.rect.collidepoint(pos)]
                     if len(clicked_lightning) != 0:
-                        clicked_lightning[0].burst()
+                        clicked_lightning[0].burst() #only one is clicked in a given frame
                         #light_objs[:] = []
+                        light_objs.remove(clicked_lightning[0])
                         for i in [obj for obj in objs if obj.will_drop == True]:
                             i.is_clicked = True #this makes sure it gets scored positively
                             i.is_dropping = True
@@ -275,7 +285,7 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
                                 5, BLACK, False, False, False, False, False))
             
             # Append lightning under the right conditions
-            if frames_elapsed % 200 == 0:
+            if random.random() < (1 / lightning_prob):
                 light_objs.append(Lightning(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
                                             random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2), False))
             
@@ -302,7 +312,7 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
             for i in [dplt for dplt in objs if dplt.will_drop == True]:
                 i.x_pos += jitters[frames_elapsed % len(jitters)]
                 i.jitter_count += 1
-                if i.jitter_count > FPS * 2:
+                if i.jitter_count > jitter_frames:
                     i.will_drop = False
                     i.is_dropping = True
             
@@ -359,6 +369,11 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg):
         pygame.display.update()
         clock.tick(FPS)
 
+    if score < level_end_score_threshold:
+        game_over = True
+    elif level == levels[-1]:
+        game_completed = True
+
 # Load background sound to channel 0
 rain_track = pygame.mixer.Sound(os.path.join('Assets', 'rainfall.mp3'))
 chan = pygame.mixer.Channel(0)
@@ -367,10 +382,19 @@ chan = pygame.mixer.Channel(0)
 chan.play(rain_track, loops = -1)
 chan.set_volume(BACKGROUND_VOLUME)
 
+# loop through levels and end game when necessary
 for level in levels:
-    level_intro(level)
-    game_loop(False, True)
-    
+    if game_over:
+        break
+    else:
+        level_intro(level)
+        game_loop(False, True, level)
+
+if game_over:
+    game_over_screen()
+elif game_completed:
+    game_complete_screen()
+
 #print score and other initial variable attributes to a .csv database file 
 print(score)
 score_and_attrib_list = ['UserX', score]
