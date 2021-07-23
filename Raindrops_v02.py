@@ -23,6 +23,7 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GRAY = (200, 200, 200)
 GREEN = (0, 255, 0)
+RED = (255, 0, 0)
 
 FPS = 60
 BACKGROUND_VOLUME = 0.1
@@ -198,6 +199,8 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
     level_end_score_threshold = (level - 1) * 1000
 
     lightning_prob = 1000 + ((level - 1) * 40) #expected value of lightning is 1 in this many frames
+    acid_rain_prob = 300  #acid droplet happens one in this many
+    acid_clicked_counter = 0 # variable will add until lightening earned then reset to zero
 
     time_given = 60 # in seconds
     time_left = time_given
@@ -258,12 +261,14 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
                     if len(clicked_droplets) != 0:
                         clicked_droplets[0].burst()
                     
-                    # Start clicked droplets falling
+                    # Start clicked droplets falling, increment score, increment acid drop counter
                     for drop in clicked_droplets:
                         drop.is_dropping = True  # objs.remove(drop)
                         drop.is_clicked = True #used later for scoring
                         drop.will_drop = False
                         score += increment_score(drop, False, 0)
+                        if drop.color == RED:
+                            acid_clicked_counter += 1
 
                     # Clear clicked lightning and start large droplets falling
                     clicked_lightning = [obj for obj in light_objs if obj.rect.collidepoint(pos)]
@@ -283,13 +288,19 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
             # Append a Droplet to the running list
             objs.append(Droplet(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
                                 random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2),
-                                5, BLACK, False, False, False, False, False))
+                                5, RED if frames_elapsed % acid_rain_prob == 0 else BLACK, False, False, False, False, False))
             
-            # Append lightning under the right conditions
+            # Append lightning under the probabilistic condition
             if random.random() < (1 / lightning_prob):
                 light_objs.append(Lightning(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
                                             random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2), False))
             
+            # Append lightning under the earned condition
+            if acid_clicked_counter >= 3:
+                light_objs.append(Lightning(random.randrange(FRAME_PADDING*2, FRAME_WIDTH - FRAME_PADDING*2),
+                                            random.randrange(FRAME_PADDING*3 + 100, FRAME_HEIGHT - FRAME_PADDING * 2), False))
+                acid_clicked_counter = 0
+
             # find connected droplets
             connected_drop_area_sum = 0
             if len(objs) > 1: # makes sure loop doesn't run on the first Droplet
@@ -303,8 +314,8 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
             # aggregate connected Droplets into one
             if connected_drop_area_sum > 0: # so this will only happen if there Droplets were connected in this frame
                 connected_drop_area_sum += math.pi * (initial_droplet_radius ** 2) # to add in the area of the current drop if other drops are touching it
-                objs.append(Droplet(objs[-1].x_pos, objs[-1].y_pos, math.sqrt(connected_drop_area_sum / math.pi), BLACK,
-                                    False, False, False, False, False))
+                objs.append(Droplet(objs[-1].x_pos, objs[-1].y_pos, math.sqrt(connected_drop_area_sum / math.pi),
+                                     RED if frames_elapsed % acid_rain_prob == 0 else BLACK,False, False, False, False, False))
                 objs.pop(-2) # remove second to last item, which was the original Droplet that fell this frame
                 if objs[-1].radius > radius_max:
                     objs[-1].will_drop = True
