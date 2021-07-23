@@ -36,6 +36,7 @@ game_over = False  # will be set to True once player loses
 game_completed = False  # will be set to True if player completes all levels.  They win the game.
 
 score = 0
+max_level_acheived = 0
 
 class IterRegistry(type):
     def __iter__(cls):
@@ -194,7 +195,7 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
     frames_elapsed = 0 #used for jitter
     jitter_frames = FPS * 2 - (level - 1)
     play_state = 'RUNNING'
-    level_end_score_threshold = (level - 1) * 200
+    level_end_score_threshold = (level - 1) * 1000
 
     lightning_prob = 1000 + ((level - 1) * 40) #expected value of lightning is 1 in this many frames
 
@@ -387,17 +388,19 @@ for level in levels:
     if game_over:
         break
     else:
+        max_level_acheived = level
         level_intro(level)
         game_loop(False, True, level)
 
 if game_over:
     game_over_screen()
 elif game_completed:
+    max_level_acheived += 1
     game_complete_screen()
 
 #print score and other initial variable attributes to a .csv database file 
 print(score)
-score_and_attrib_list = ['UserX', score]
+score_and_attrib_list = ['UserX', score, max_level_acheived]
 with open(os.path.join('Assets', 'scoreDB.csv'),'a') as fd:
     fd.write(",".join([str(x) for x in score_and_attrib_list]) + '\n')
             
