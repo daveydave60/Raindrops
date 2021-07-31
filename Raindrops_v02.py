@@ -155,6 +155,24 @@ def draw_message(window, text_string, text_size):
     window.blit(draw_text, (FRAME_WIDTH//2 - draw_text.get_width()//2, FRAME_HEIGHT//2 - draw_text.get_height()//2))
     pygame.display.update()
 
+def draw_message2(window, rect_center_h, text_string_main, text_size_main, text_string_sub = None, text_size_sub = None): ## testing new functionality
+    # Draw main message on screen
+    pygame.draw.rect(window, GRAY, pygame.Rect(rect_center_h - 200, FRAME_HEIGHT / 2 - 100, 400, 200), 0)  #this rect is filled
+    pygame.draw.rect(window, BLACK, pygame.Rect(rect_center_h - 200, FRAME_HEIGHT / 2 - 100, 400, 200), 4)  #this rect adds a border
+    message_font = pygame.font.SysFont('comicsans', text_size_main)
+    draw_text = message_font.render(text_string_main, 1, BLACK)
+    window.blit(draw_text, (rect_center_h - draw_text.get_width()//2, FRAME_HEIGHT//2 - draw_text.get_height()//2))
+
+    # Draw sub-message on screen
+    if text_size_sub is not None:
+        pygame.draw.rect(window, GRAY, pygame.Rect(FRAME_WIDTH - rect_center_h - 200, FRAME_HEIGHT / 2 + 120, 400, 100), 0)  #this rect is filled
+        pygame.draw.rect(window, BLACK, pygame.Rect(FRAME_WIDTH - rect_center_h - 200, FRAME_HEIGHT / 2 + 120, 400, 100), 4)  #this rect adds a border
+        message_font_sub = pygame.font.SysFont('comicsans', text_size_sub)
+        draw_text_sub = message_font_sub.render(text_string_sub, 1, BLACK)
+        window.blit(draw_text_sub, (FRAME_WIDTH - rect_center_h - draw_text_sub.get_width()//2, FRAME_HEIGHT//2 + 170 - draw_text_sub.get_height()//2))
+
+    pygame.display.update()
+
 
 def level_intro(level):
     global score
@@ -171,13 +189,52 @@ def level_intro(level):
         ##draw scoreboard rect and score
         draw_scoreboard(gameDisplay, score)
         
-        #draw gameplay region rect
+        ##draw gameplay region rect
         pygame.draw.rect(gameDisplay, BLACK, pygame.Rect(FRAME_PADDING, 100 + FRAME_PADDING * 2, 
                 FRAME_WIDTH - FRAME_PADDING * 2,FRAME_HEIGHT - 100 - FRAME_PADDING * 2 - FRAME_PADDING), 2)
         
-        draw_message(gameDisplay, 'Level ' + str(level), 100)
+        ##algorithm to map movement of text boxes across screen
+        if i < 50: #first 50 frames, fly in
+            mid = int(i * 12 - 300)
+        elif i > 250: #last 50 frames, fly out
+            mid = int(FRAME_WIDTH//2 + (i - 250) * 12)
+        else: #middle frames, still in the middle of screen
+            mid = FRAME_WIDTH//2
+
+        ##draw message
+        draw_message2(gameDisplay, mid, 'Level ' + str(level), 100, 'Keep score above ' + str((level - 1) * 1000), 40)
+        #draw_message(gameDisplay, 'Level ' + str(level), 100)
          
 def game_over_screen():
+    global score
+    for i in range(FPS * 5): #run for 5 seconds
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+        
+        gameDisplay.fill(WHITE)
+        
+        ##draw clock rect, and clock timer
+        draw_clock(gameDisplay, 0)
+                
+        ##draw scoreboard rect and score
+        draw_scoreboard(gameDisplay, score)
+        
+        ##draw gameplay region rect
+        pygame.draw.rect(gameDisplay, BLACK, pygame.Rect(FRAME_PADDING, 100 + FRAME_PADDING * 2, 
+                FRAME_WIDTH - FRAME_PADDING * 2,FRAME_HEIGHT - 100 - FRAME_PADDING * 2 - FRAME_PADDING), 2)
+        
+        ##algorithm to map movement of text boxes across screen
+        if i < 50: #first 50 frames, fly in
+            mid = int(i * 12 - 300)
+        elif i > 250: #last 50 frames, fly out
+            mid = int(FRAME_WIDTH//2 + (i - 250) * 12)
+        else: #middle frames, still in the middle of screen
+            mid = FRAME_WIDTH//2
+
+        ##draw message
+        draw_message2(gameDisplay, mid, 'GAME OVER', 80, 'You Failed!', 50)
+
     print('You failed :(   Game over!')
 
 def game_complete_screen():
@@ -204,7 +261,7 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
 
     time_given = 60 # in seconds
     time_left = time_given
-    droplet_interval = 1
+    droplet_interval = 1 # nbr of frames between droplets
     initial_droplet_radius = 5
     radius_max = initial_droplet_radius + 6
     fall_speed = 10 
