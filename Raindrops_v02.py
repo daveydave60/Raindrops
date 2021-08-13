@@ -37,7 +37,10 @@ game_over = False  # will be set to True once player loses
 game_completed = False  # will be set to True if player completes all levels.  They win the game.
 
 score = 0
+end_level_high_score = 0
 max_level_acheived = 0
+warp_increment = 800
+warp_point_reward = 40 # player gets this many points for every second left on clock
 
 class IterRegistry(type):
     def __iter__(cls):
@@ -130,7 +133,7 @@ def draw_clock(window, time_left):
     gameDisplay.blit(time_text, time_textRect)
     return time_textRect
     
-def draw_scoreboard(window, score):
+def draw_scoreboard(window, score, color):
     pygame.draw.rect(
         window, BLACK, pygame.Rect(
             FRAME_WIDTH / 2 + FRAME_PADDING / 2, FRAME_PADDING, FRAME_WIDTH / 2 - FRAME_PADDING * 2, 100
@@ -141,7 +144,7 @@ def draw_scoreboard(window, score):
     window.blit(scoreLabel_text, scoreLabel_textRect)
     
     score_font = pygame.font.SysFont('arial', 48)
-    score_text = score_font.render(str(score), True, BLACK, WHITE)
+    score_text = score_font.render(str(score), True, color, WHITE)
     score_textRect = score_text.get_rect()
     score_textRect.center = (FRAME_WIDTH * 3/4, (100 + FRAME_PADDING * 2) / 2)
     window.blit(score_text, score_textRect)
@@ -174,7 +177,7 @@ def draw_message2(window, rect_center_h, text_string_main, text_size_main, text_
     pygame.display.update()
 
 
-def level_intro(level):
+def level_intro(level, level_min_score, warp_threshold):
     global score
     for i in range(FPS * 5): #run intro for 5 seconds
         for event in pygame.event.get():
@@ -187,7 +190,7 @@ def level_intro(level):
         draw_clock(gameDisplay, 0)
                 
         ##draw scoreboard rect and score
-        draw_scoreboard(gameDisplay, score)
+        draw_scoreboard(gameDisplay, score, BLACK)
         
         ##draw gameplay region rect
         pygame.draw.rect(gameDisplay, BLACK, pygame.Rect(FRAME_PADDING, 100 + FRAME_PADDING * 2, 
@@ -202,7 +205,8 @@ def level_intro(level):
             mid = FRAME_WIDTH//2
 
         ##draw message
-        draw_message2(gameDisplay, mid, 'Level ' + str(level), 100, 'Keep score above ' + str((level - 1) * 1000), 40)
+        draw_message2(gameDisplay, mid, 'Level ' + str(level), 100, 'Keep score above ' + str(level_min_score) + 
+                    ": Warp at " + str(warp_threshold), 30)
         #draw_message(gameDisplay, 'Level ' + str(level), 100)
          
 def game_over_screen():
@@ -218,7 +222,7 @@ def game_over_screen():
         draw_clock(gameDisplay, 0)
                 
         ##draw scoreboard rect and score
-        draw_scoreboard(gameDisplay, score)
+        draw_scoreboard(gameDisplay, score, BLACK)
         
         ##draw gameplay region rect
         pygame.draw.rect(gameDisplay, BLACK, pygame.Rect(FRAME_PADDING, 100 + FRAME_PADDING * 2, 
@@ -241,7 +245,7 @@ def game_complete_screen():
     print('You beat the game!!!!')
 
 # Main function
-def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
+def game_loop(bool_small_drops_count, bool_nat_drops_neg, level, lev_min, warp_threshold):
     # Initialize variables
     global score
     global game_over
@@ -251,20 +255,20 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
     done = False
     jitters = [-3, 3] # determines how much a jittering droplet moves form side to side
     frames_elapsed = 0 #used for jitter
-    jitter_frames = FPS * 2 - (level - 1)
+    jitter_frames = FPS * 2 - (level - 1) # drops jitter for less time as your level increases
     play_state = 'RUNNING'
-    level_end_score_threshold = (level - 1) * 1000
+    level_end_score_min_threshold = lev_min
 
     lightning_prob = 1000 + ((level - 1) * 40) #expected value of lightning is 1 in this many frames
-    acid_rain_prob = 300  #acid droplet happens one in this many
-    acid_clicked_counter = 0 # variable will add until lightening earned then reset to zero
+    acid_rain_prob = 300  #acid droplet happens one in this many frames
+    acid_clicked_counter = 0 # variable will add until lightning earned then reset to zero
 
     time_given = 60 # in seconds
     time_left = time_given
     droplet_interval = 1 # nbr of frames between droplets
     initial_droplet_radius = 5
     radius_max = initial_droplet_radius + 6
-    fall_speed = 10 
+    fall_speed = 10
     
     gameDisplay.fill(WHITE)
     
@@ -409,7 +413,7 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
             draw_clock(gameDisplay, time_left)
                     
             ##draw scoreboard rect and score
-            draw_scoreboard(gameDisplay, score)
+            draw_scoreboard(gameDisplay, score, RED if (score < level_end_score_min_threshold) else BLACK)
             
             #draw gameplay region rect
             pygame.draw.rect(
@@ -434,11 +438,17 @@ def game_loop(bool_small_drops_count, bool_nat_drops_neg, level):
             pygame.time.delay(3000)
             done = True
             #break
+        elif score >= warp_threshold:
+            draw_message(gameDisplay, 'Warp Achieved!', 100)
+            
+            pygame.time.delay(3000)
+            score += int(time_left) * warp_point_reward # add 10 points to score for every second you had left
+            done = True
         
         pygame.display.update()
         clock.tick(FPS)
 
-    if score < level_end_score_threshold:
+    if score < level_end_score_min_threshold:
         game_over = True
     elif level == levels[-1]:
         game_completed = True
@@ -457,8 +467,11 @@ for level in levels:
         break
     else:
         max_level_acheived = level
-        level_intro(level)
-        game_loop(False, True, level)
+        end_level_high_score = max(end_level_high_score, score)
+        level_min_score = (level - 1) * 1000
+        warp_threshold = max(level_min_score + warp_increment, end_level_high_score + warp_increment)
+        level_intro(level, level_min_score, warp_threshold)
+        game_loop(False, True, level, level_min_score, warp_threshold)
 
 if game_over:
     game_over_screen()
